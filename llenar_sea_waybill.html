@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Estampador Oficial sobre Plantilla Sea Waybill PDF</title>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { margin: 0; padding: 20px; background: #1e293b; color: #f8fafc; }
+  .header-bar {
+    max-width: 960px; margin: 0 auto 20px auto; background: #0f172a;
+    padding: 16px 22px; border-radius: 10px; border: 1px solid #334155;
+    display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center;
+  }
+  .btn {
+    background: #2563eb; color: #fff; border: none; padding: 10px 18px;
+    border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .btn:hover { background: #1d4ed8; }
+  .btn-success { background: #16a34a; }
+  .btn-success:hover { background: #15803d; }
+  .btn:disabled { background: #475569; cursor: not-allowed; }
+  .instructions {
+    max-width: 960px; margin: 0 auto 18px auto; background: #334155;
+    padding: 10px 16px; border-radius: 8px; font-size: 13px; color: #e2e8f0;
+  }
+  #pages-container {
+    display: flex; flex-direction: column; align-items: center; gap: 30px;
+  }
+  .page-wrapper {
+    position: relative; background: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    user-select: none; overflow: hidden;
+  }
+  .page-wrapper canvas { display: block; width: 100%; height: 100%; }
+  .field-box {
+    position: absolute; cursor: move; font-family: "Courier New", Courier, monospace;
+    font-weight: bold; color: #000; white-space: pre; line-height: 1.18;
+    padding: 1px 2px; border: 1px dashed rgba(37, 99, 235, 0.45);
+    background: rgba(255, 255, 255, 0.55); border-radius: 2px;
+  }
+  .field-box:hover, .field-box:focus {
+    border: 1.5px solid #2563eb; background: rgba(254, 249, 195, 0.85);
+    outline: none; z-index: 20;
+  }
+  .field-box.blue-ink {
+    color: #0033cc; font-family: "Snell Roundhand", "Brush Script MT", cursive;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="header-bar">
+  <div>
+    <h2 style="margin:0 0 4px 0; font-size:18px;">Llenado Directo sobre Plantilla: Sea Waybill (Chile Guajillo CIF)</h2>
+    <span style="font-size:12px; color:#94a3b8;">Sube tu PDF en blanco, verifica o arrastra los textos y descarga el PDF final.</span>
+  </div>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <label class="btn">
+      📂 1. Seleccionar tu archivo Sea Waybill.pdf
+      <input type="file" id="pdf-upload" accept="application/pdf" style="display:none;">
+    </label>
+    <button id="download-btn" class="btn btn-success" disabled>💾 2. Descargar Sea Waybill Lleno (.PDF)</button>
+  </div>
+</div>
+
+<div class="instructions">
+  💡 <strong>Tip interactivo:</strong> Una vez cargado tu archivo <code>Sea Waybill.pdf</code>, puedes <strong>arrastrar con el mouse</strong> cualquier bloque de texto para ajustarlo con precisión milimétrica a las líneas de tu escaneo, o hacer <strong>doble clic</strong> para editar su contenido antes de descargar.
+</div>
+
+<div id="pages-container"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let originalPdfBytes = null;
+const RENDER_WIDTH = 850; // Ancho visual en pantalla en píxeles
+
+// Coordenadas precalibradas (x%, y% desde esquina superior izquierda) para Sea Waybill.pdf
+const FIELDS_DATA = [
+  // ================= PÁGINA 1 (Page 2/3) =================
+  { page: 0, x: 4.5, y: 3.2, size: 8.5, text: "101731" },
+  { page: 0, x: 52.5, y: 8.8, size: 9.5, text: "Master" },
+  {
+    page: 0, x: 4.5, y: 11.4, size: 7.8,
+    text: "DSV AIR & SEA S.A. DE C.V.\nAV. INSURGENTES SUR N.1271,\nP-4, EXTREMADURA INSURG.\nMEXICO CITY DF  03740 MEXICO\nRFC: DAA020218JY1*"
+  },
+  { page: 0, x: 52.5, y: 15.8, size: 8.5, text: "15735215" },
+  { page: 0, x: 67.5, y: 15.8, size: 8.5, text: "HLCUME3260227194" },
+  { page: 0, x: 91.0, y: 15.8, size: 8.5, text: "2/3" },
+  { page: 0, x: 52.5, y: 19.3, size: 8.0, text: "PF-GUAJILLO-2026 / CIF JEBEL ALI" },
+  {
+    page: 0, x: 4.5, y: 20.6, size: 7.8,
+    text: "DSV AIR & SEA DWC-LLC\nUNITED ARAB EMIRATES, DUBAI\nDUBAI LOGISTICS CITY, JEBEL ALI FREE ZONE (JAFZA)\nP.O. BOX 36683   TAX ID: 100234567800003"
+  },
+  {
+    page: 0, x: 52.5, y: 23.6, size: 7.8,
+    text: "DSV AIR & SEA S.A. DE C.V.\nAV. INSURGENTES SUR N.1271,\nP-4, EXTREMADURA INSURG.**"
+  },
+  {
+    page: 0, x: 4.5, y: 29.8, size: 7.8,
+    text: "DSV AIR & SEA DWC-LLC\nUNITED ARAB EMIRATES, DUBAI\nDUBAI LOGISTICS CITY, JEBEL ALI FREE ZONE (JAFZA)\nP.O. BOX 36683   TAX ID: 100234567800003"
+  },
+  { page: 0, x: 52.5, y: 31.8, size: 8.0, text: "UAE-IMP-090421" },
+  {
+    page: 0, x: 4.5, y: 37.8, size: 7.5,
+    text: "CALZ. VALLEJO #1020, AZCAPOTZALCO\n02300 MEXICO CITY (CDMX), MEXICO"
+  },
+  { page: 0, x: 37.2, y: 38.2, size: 8.2, text: "MAERSK DANUBE" },
+  { page: 0, x: 56.5, y: 38.2, size: 8.2, text: "612E" },
+  { page: 0, x: 37.2, y: 41.2, size: 8.2, text: "VERACRUZ" },
+  { page: 0, x: 4.5, y: 43.8, size: 8.2, text: "JEBEL ALI" },
+
+  // Tabla Central de Mercancía (Página 1)
+  {
+    page: 0, x: 4.5, y: 49.2, size: 7.6,
+    text: "HAMU 1573491\nSEAL: 142532\n\nMARKS:\nCHILES SECOS\nEXPORT GRADE\nMADE IN MEXICO"
+  },
+  {
+    page: 0, x: 22.8, y: 49.2, size: 7.5,
+    text: "1 CONT. 40'X9'6\" HIGH CUBE CONT. SLAC*\n24 PALLETS (720 PACKAGES / CORRUGATED BOXES)\nDRIED GUAJILLO CHILI PEPPERS\n(CHILE GUAJILLO SECO ENTERO - CAPSICUM ANNUUM)\nVACUUM-PACKED IN 5.0 KG HIGH-DENSITY BAGS INSIDE\nDOUBLE-FLUTE CORRUGATED BOXES (30 BOXES/PALLET)\nHS CODE: 0904.21.01 | REF: PF-GUAJILLO-2026\nINCOTERM: CIF JEBEL ALI, DUBAI, UAE (INCOTERMS 2020)\nMARINE CARGO INSURANCE PREPAID BY SHIPPER (110%)"
+  },
+  { page: 0, x: 72.0, y: 50.5, size: 8.0, text: "4440.000\nKGM" },
+  { page: 0, x: 84.5, y: 50.5, size: 8.0, text: "40.320\nMTQ" },
+
+  // Totales y RFCs en Tabla Central
+  {
+    page: 0, x: 4.5, y: 63.2, size: 7.2,
+    text: "*SLAC Shipper's\nLoad, Stow, Weight\nand Count"
+  },
+  {
+    page: 0, x: 22.8, y: 61.8, size: 7.5,
+    text: "================= 24 PALLETS (720 PACKAGES)\n\nSHIPPER'S TAX ID NUMBER: DAA020218JY1\nCONSIGNEE'S TAX ID NUMBER: 100234567800003\nNOTIFY1'S TAX ID NUMBER: 100234567800003"
+  },
+  { page: 0, x: 72.0, y: 61.8, size: 8.0, text: "=========\n4440.000\nKGM" },
+  { page: 0, x: 84.5, y: 61.8, size: 8.0, text: "========\n40.320\nMTQ" },
+
+  // Fila de Contenedores Recibidos, Movimiento y Moneda
+  { page: 0, x: 52.0, y: 72.2, size: 8.5, text: "1" },
+  { page: 0, x: 72.5, y: 72.2, size: 8.5, text: "FCL/FCL" },
+  { page: 0, x: 87.0, y: 72.2, size: 8.5, text: "USD" },
+
+  // Totales de Flete (Abajo Izquierda)
+  { page: 0, x: 5.0, y: 78.5, size: 7.3, text: "FREIGHT & CHARGES AS PER PAGE 3/3 (CIF JEBEL ALI)\nINCLUDES PREPAID MARINE CARGO INSURANCE (110%)" },
+  { page: 0, x: 13.5, y: 88.2, size: 8.5, text: "3703.00" },
+  { page: 0, x: 24.5, y: 91.5, size: 8.5, text: "USD       3703.00" },
+
+  // Lugar y Fecha de Emisión + Firma (Abajo Derecha)
+  { page: 0, x: 49.5, y: 89.2, size: 8.2, text: "MEXICO CITY   13.OCT.2026" },
+  { page: 0, x: 81.5, y: 89.2, size: 8.2, text: "ORIGIN" },
+  { page: 0, x: 72.0, y: 93.8, size: 13.0, text: "Hapag-Lloyd Mexico", blueInk: true },
+
+  // ================= PÁGINA 2 (Page 3/3) =================
+  { page: 1, x: 81.2, y: 11.2, size: 8.5, text: "HLCUME3260227194" },
+  { page: 1, x: 5.0, y: 16.8, size: 8.2, text: "HAMU 1573491" },
+  { page: 1, x: 22.8, y: 16.8, size: 8.2, text: "TARE WEIGHT                3680.000 KGM" },
+  { page: 1, x: 37.5, y: 28.0, size: 8.2, text: "13.OCT.2026" },
+  { page: 1, x: 33.5, y: 29.5, size: 8.2, text: "VERACRUZ" },
+  { page: 1, x: 31.5, y: 31.0, size: 8.2, text: "MAERSK DANUBE   VOYAGE: 612E" },
+  { page: 1, x: 28.5, y: 43.2, size: 8.0, text: "KAREN TRUJILLO" },
+  { page: 1, x: 28.5, y: 44.6, size: 8.0, text: "5586864141" },
+  { page: 1, x: 26.5, y: 46.0, size: 8.0, text: "KAREN.TRUJILLO@MX.DSV.COM" },
+
+  // Tabla Completa de Cargos y Fletes (Mitad Inferior de Página 2)
+  {
+    page: 1, x: 5.0, y: 52.5, size: 8.0,
+    text:
+"CHARGE                   RATE       BASIS W/M/V   CURR      PREPAID      COLLECT\n" +
+"--------------------------------------------------------------------------------\n" +
+"ORIGIN LANDFREIGHT       1215.00    1 CTR         USD       1215.00\n" +
+"OCEAN FREIGHT            1850.00    1 CTR         USD       1850.00\n" +
+"MARINEFUEL RECOVER        348.00    1 CTR         USD        348.00\n" +
+"CARGO INSURANCE           180.00    1 BIL         USD        180.00\n" +
+"SEC.MANIF.DOCUMENT         35.00    1 BIL         USD         35.00\n" +
+"DOCUMENT FEE               75.00    1 BIL         USD         75.00\n" +
+"TMNL SECURITY DEST         30.00    1 CTR         USD                      30.00\n" +
+"THC DESTINATION           265.00    1 CTR         USD                     265.00\n" +
+"ADMIN FEE DEST             65.00    1 BIL         USD                      65.00\n" +
+"EQUIPM.MAINTEN.FEE         30.00    1 CTR         USD                      30.00\n" +
+"--------------------------------------------------------------------------------\n" +
+"TOTAL FREIGHT & CHARGES (CIF JEBEL ALI, UAE)      USD       3703.00       390.00"
+  }
+];
+
+const uploadInput = document.getElementById('pdf-upload');
+const downloadBtn = document.getElementById('download-btn');
+const pagesContainer = document.getElementById('pages-container');
+
+uploadInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  originalPdfBytes = await file.arrayBuffer();
+  await renderPdfWithOverlays(originalPdfBytes.slice(0));
+  downloadBtn.disabled = false;
+});
+
+async function renderPdfWithOverlays(buffer) {
+  pagesContainer.innerHTML = '';
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+  for (let pageIndex = 0; pageIndex < pdf.numPages; pageIndex++) {
+    const page = await pdf.getPage(pageIndex + 1);
+    const unscaledViewport = page.getViewport({ scale: 1 });
+    const scale = RENDER_WIDTH / unscaledViewport.width;
+    const viewport = page.getViewport({ scale });
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'page-wrapper';
+    wrapper.style.width = `${viewport.width}px`;
+    wrapper.style.height = `${viewport.height}px`;
+    wrapper.dataset.pageIndex = pageIndex;
+    wrapper.dataset.pdfWidth = unscaledViewport.width;
+    wrapper.dataset.pdfHeight = unscaledViewport.height;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    wrapper.appendChild(canvas);
+
+    // Agregar bloques de texto correspondientes a esta página
+    FIELDS_DATA.filter(f => f.page === pageIndex).forEach((field) => {
+      const box = document.createElement('div');
+      box.className = 'field-box' + (field.blueInk ? ' blue-ink' : '');
+      box.contentEditable = "true";
+      box.innerText = field.text;
+      box.style.left = `${field.x}%`;
+      box.style.top = `${field.y}%`;
+      box.style.fontSize = `${field.size * scale}px`;
+      box.dataset.pdfFontSize = field.size;
+      box.dataset.blueInk = field.blueInk ? 'true' : 'false';
+
+      makeDraggable(box, wrapper);
+      wrapper.appendChild(box);
+    });
+
+    pagesContainer.appendChild(wrapper);
+  }
+}
+
+function makeDraggable(el, container) {
+  let isDragging = false, startX, startY, initialLeft, initialTop;
+
+  el.addEventListener('mousedown', (e) => {
+    if (document.activeElement === el) return; // Si está editando texto, permitir selección
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    initialLeft = el.offsetLeft;
+    initialTop = el.offsetTop;
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const newLeftPct = ((initialLeft + dx) / container.clientWidth) * 100;
+    const newTopPct = ((initialTop + dy) / container.clientHeight) * 100;
+    el.style.left = `${Math.max(0, Math.min(98, newLeftPct))}%`;
+    el.style.top = `${Math.max(0, Math.min(98, newTopPct))}%`;
+  });
+
+  window.addEventListener('mouseup', () => { isDragging = false; });
+  el.addEventListener('dblclick', () => { el.focus(); });
+}
+
+downloadBtn.addEventListener('click', async () => {
+  if (!originalPdfBytes) return;
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const pdfDoc = await PDFDocument.load(originalPdfBytes);
+  const courierBold = await pdfDoc.embedFont(StandardFonts.CourierBold);
+  const timesItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic);
+
+  const wrappers = document.querySelectorAll('.page-wrapper');
+  wrappers.forEach((wrapper) => {
+    const pageIndex = parseInt(wrapper.dataset.pageIndex, 10);
+    const pdfPage = pdfDoc.getPage(pageIndex);
+    const { width, height } = pdfPage.getSize();
+
+    const boxes = wrapper.querySelectorAll('.field-box');
+    boxes.forEach((box) => {
+      const xPct = parseFloat(box.style.left);
+      const yPct = parseFloat(box.style.top);
+      const fontSize = parseFloat(box.dataset.pdfFontSize);
+      const isBlue = box.dataset.blueInk === 'true';
+      const lines = box.innerText.split('\n');
+      const lineHeight = fontSize * 1.18;
+
+      const pdfX = (xPct / 100) * width;
+      const startPdfY = height - ((yPct / 100) * height) - fontSize;
+
+      lines.forEach((line, idx) => {
+        pdfPage.drawText(line, {
+          x: pdfX,
+          y: startPdfY - (idx * lineHeight),
+          size: fontSize,
+          font: isBlue ? timesItalic : courierBold,
+          color: isBlue ? rgb(0, 0.2, 0.8) : rgb(0, 0, 0)
+        });
+      });
+    });
+  });
+
+  const modifiedPdfBytes = await pdfDoc.save();
+  const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'Sea_Waybill_Chile_Guajillo_CIF_Lleno.pdf';
+  link.click();
+});
+</script>
+</body>
+</html>
